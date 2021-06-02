@@ -47,8 +47,12 @@
 // C. Bussy-Virat| 08/04/2015    | The end time is read from the input
 //                                 file (not the number of days anymore)
 // A. Ridley     | 03/09/2021    | The rewrite begins  
+// 
+// A. Kingwell   | 06/02/2021    | Cleanup of comments for readability and clarity
 //////////////////////////////////////////////////////////////////////////////
 
+
+// AOK: Beginning of the load_options function, which takes user input to determine desired settings for debug, space environment, etc.
 int load_options( OPTIONS_T *OPTIONS,
 		  char filename[1000],
 		  int iProc,
@@ -93,6 +97,9 @@ int load_options( OPTIONS_T *OPTIONS,
    geophs[ 6 ] =    6378.135;      // ER
    geophs[ 7 ] =    1.0;           // AE
 
+
+   // AOK: Declarations of variables to be used later within the load_options() function.
+   // AOK: PLEASE NOTE: All variables with triple-letter names (iii, ooo, et cetera) are used as iterators in for-loops
    double   epoch_sat_previous;
    int bbb;
    int ii;
@@ -214,8 +221,10 @@ int load_options( OPTIONS_T *OPTIONS,
      printf("-- (load_options) The main input file was correctly open.\n");
 
 
+
+
    // -------------------------------------------------------------------
-   // #SPICE 
+   // AOK: Begin SPICE Settings Section Part 1
    // -------------------------------------------------------------------
 
    // Read main input file to figure out the path to spice (where leap
@@ -228,19 +237,26 @@ int load_options( OPTIONS_T *OPTIONS,
    
    found_eoh = 0;
    rewind(fp);
+
+   // AOK: While we still haven't found the SPICE section of the given file and we still haven't reached the end of the file,
+   //      continue using getline() to read the file
    while ( found_eoh == 0 && !feof(fp)) {
      getline(&line, &len, fp);
      sscanf(line, "%s", text);
+     // AOK: If we successfully find the SPICE section, break out of the while-loop using found_eoh
      if (  strcmp( "#SPICE", text  ) == 0 )  {
        found_eoh = 1;
      }
    }
+   // AOK: If we reach the end of the given file without finding the SPICE section, throw an error and print message to user
    if (feof(fp)){
      printf("No section #SPICE found in %s. The program will stop.\n",
 	    filename);
      ierr =  MPI_Finalize();
      exit(0);
    }
+
+
    // Path of SPICE
    getline(&line, &len, fp);
    sscanf(line, "%s", OPTIONS->path_to_spice);
@@ -251,7 +267,7 @@ int load_options( OPTIONS_T *OPTIONS,
    // in the main input file in section #SPICE must be hello/hi/data/
    strcat(OPTIONS->path_to_spice, "/"); 
 
-   // Does the user wants to use a particular earth_binary_pck file
+   // Does the user wants to use a particular earth_binary_pck file?
    // (yes if line below is not empty or does not start with a #)
    getline(&line, &len, fp);
    strcpy(text_spice, "");
@@ -270,16 +286,25 @@ int load_options( OPTIONS_T *OPTIONS,
    strcat(leap_sec_file_path, "naif0012.tls");
    strcpy(OPTIONS->leap_sec_file, leap_sec_file_path );
    furnsh_c( OPTIONS->leap_sec_file);
-   // end of sectio SPICE until we get back to it after reading section #TIME
 
    // -------------------------------------------------------------------
-   // #TIME
+   // AOK: End SPICE Settings Section Part 1
+   // -------------------------------------------------------------------
+
+
+
+
+
+   // -------------------------------------------------------------------
+   // AOK: Begin TIME Settings Section
    // -------------------------------------------------------------------
    if (iDebugLevel >= 2)
      printf("--- (load_options) Beginning of section #TIME.\n");
 
    found_eoh = 0;
    rewind(fp);
+
+   // AOK: Same as with SPICE section above, read in the given file and look for the TIME section
    while ( found_eoh == 0 && !feof(fp)) {
      getline(&line, &len, fp);
      sscanf(line, "%s", text);
@@ -287,6 +312,8 @@ int load_options( OPTIONS_T *OPTIONS,
        found_eoh = 1;
      }
    }
+
+   // AOK: If the TIME section cannot be found in the given file, throw an error and print a message to the user
    if (feof(fp)){
      printf("No section #TIME found in %s. The program will stop.\n",
 	    filename);
@@ -321,6 +348,7 @@ int load_options( OPTIONS_T *OPTIONS,
        char second_now_str[15];
        sprintf(second_now_str, "%d", second_now);
     
+       // AOK: Concatenate the separate parts of the date read in from the file and store the complete date in a single array
        char date_now[256];
        strcpy(date_now,year_now_str);
        strcat(date_now, "-");
@@ -354,6 +382,9 @@ int load_options( OPTIONS_T *OPTIONS,
      // input file input.d)
      rewind(fp);
      found_eoh=0;
+
+     // AOK: Begin Redundant Section
+     // AOK: This chunk of code is identical to that occuring at the beginning of the TIME section; unsure of desired purpose
      while ( found_eoh == 0 && !feof(fp)) {
        getline(&line, &len, fp);
        sscanf(line, "%s", text);
@@ -367,6 +398,7 @@ int load_options( OPTIONS_T *OPTIONS,
        ierr =  MPI_Finalize();
        exit(0);
      }
+     // AOK: End Redundant Section
 
      getline(&line, &len, fp);
      double nb_hours_simu;
@@ -380,7 +412,10 @@ int load_options( OPTIONS_T *OPTIONS,
      strcpy(OPTIONS->final_epoch, times_end );
      getline(&line, &len, fp);
 
-   } else {
+   } 
+   
+   // AOK: If we do not find the word "now" as the first word in the TIME section
+   else {
 
      strcpy(OPTIONS->initial_epoch, text );
      // Date of final epoch
@@ -417,8 +452,18 @@ int load_options( OPTIONS_T *OPTIONS,
      printf("--- (load_options) End of section #TIME.\n");
    //    etprint(et_end, "new again");
 
+// -----------------------------------------------------
+// AOK: End TIME Settings Section
+// -----------------------------------------------------
 
-//newstructure
+
+
+
+
+// -----------------------------------------------------
+// AOK: Begin SPICE Settings Section Part 2
+// -----------------------------------------------------
+
 // A bit before, we read main input file to figure out the path to spice (where leap second file, and other files are). Now we figure out the other SPICE kernels to load
   /* SPICE */
   if ((iProc == 0) & ( iDebugLevel >= 2 )){
@@ -427,6 +472,9 @@ int load_options( OPTIONS_T *OPTIONS,
 
   found_eoh = 0;
   rewind(fp);
+
+  // AOK: Begin Redundant Section
+  // AOK: This code is identical to that we saw in Section 1 of SPICE. 
   while ( found_eoh == 0 && !feof(fp)) {
     getline(&line, &len, fp);
     sscanf(line, "%s", text);
@@ -439,6 +487,7 @@ int load_options( OPTIONS_T *OPTIONS,
     ierr =  MPI_Finalize();
     exit(0);
   }
+  // AOK: End Redundant Section
 
   if ( strcmp(text_spice, "default") == 0 ){ // if 'default' chosen in section #SPICE. So that means that either the line below the path was empty or that the user put 'default' in this line
     strcpy(earth_binary_pck_path,OPTIONS->path_to_spice);
@@ -459,6 +508,7 @@ int load_options( OPTIONS_T *OPTIONS,
   strcpy(OPTIONS->eop_file, eop_file_path);
   strcpy(OPTIONS->planet_ephem_file, planet_ephem_file_path );
   strcpy(OPTIONS->earth_binary_pck, earth_binary_pck_path );
+
   // Figure out if the ITRF93 Earth body-fixed rotating frame for conversion ECI to ECEF is available for the epoch of the propagation. If it is not, then use the less accurate IAU_EARTH rotating frame
   // // from the name of the earth_binary_pck file, figure out the date after which we can't use ITRF93 (160830 in the example a few lines above)
   next = &earth_binary_pck_path_temp[0];
@@ -469,7 +519,9 @@ int load_options( OPTIONS_T *OPTIONS,
   char earth_binary_pck_path_temp_new_really[256];
   strcpy(earth_binary_pck_path_temp_new_really, "");
   strncat(earth_binary_pck_path_temp_new_really, strchr(next, '_')+1, (int)(strlen(earth_binary_pck_path_temp_new)-1));
-  // // now we know this date, convert it into the correct format (so we can compare it to the end epoch time of the constellation). ASSUMPTION: have to be after 2000
+
+  // // now we know this date, convert it into the correct format (so we can compare it to the end epoch time of the constellation). 
+  // ASSUMPTION: have to be after 2000
   char earth_binary_pck_date[100];
   strcpy(earth_binary_pck_date, "20");
   strncat(earth_binary_pck_date, &earth_binary_pck_path_temp_new_really[0], 2);
@@ -484,8 +536,9 @@ int load_options( OPTIONS_T *OPTIONS,
   str2et_c(OPTIONS->final_epoch, &et_final_epoch);
   int accurate_earth_fixed_frame_available = 0;
 
-
-  if (et_final_epoch + 24 * 3600. > et_earth_binary_pck_date){ // if the propagations ends later than the date of the pck file then ITRF93 can't be used (with one day margin)
+  // if the propagations ends later than the date of the pck file then ITRF93 can't be used (with one day margin)
+  // AOK: PLEASE NOTE: Magic numbers 24 and 3600 here are to convert to the number of seconds in a day
+  if (et_final_epoch + 24 * 3600. > et_earth_binary_pck_date){ 
     accurate_earth_fixed_frame_available = 0;
   }
   else{
@@ -597,10 +650,17 @@ int load_options( OPTIONS_T *OPTIONS,
   //  printf("<%s>\n", OPTIONS->earth_fixed_frame);
 
 
+// --------------------------------------------------
+// AOK: End TIME Settings Section
+// --------------------------------------------------
 
 
 
 
+
+ // -------------------------------------------------
+// AOK: Begin DENSITY MOD Settings Section
+// --------------------------------------------------
 
   if ((iProc == 0) & ( iDebugLevel >= 2 )){
     printf("--- (load_options) Beginning of section #DENSITY_MOD.\n");
@@ -635,6 +695,17 @@ int load_options( OPTIONS_T *OPTIONS,
     printf("--- (load_options) End of section #DENSITY_MOD.\n");
   }
 
+  // -----------------------------------------------
+  // AOK: End DENSITY MOD Settings Section
+  // -----------------------------------------------
+
+
+
+
+
+  // -----------------------------------------------
+  // AOK: Begin THRUST Settings Section
+  // -----------------------------------------------
 
     if ((iProc == 0) & ( iDebugLevel >= 2 )){
     printf("--- (load_options) Beginning of section #THRUST.\n");
@@ -670,7 +741,17 @@ int load_options( OPTIONS_T *OPTIONS,
     printf("--- (load_options) End of section #THRUST.\n");
   }
 
+  // ------------------------------------------------
+  // AOK: End THRUST Settings Section
+  // ------------------------------------------------
 
+
+
+
+
+  // ------------------------------------------------
+  // AOK: Begin ORBIT Settings Section
+  // ------------------------------------------------
 
   /* ORBIT just to determine if collision_vcm optoin is on, nin which case don't look at geometry file. ORBIT sseciton will be read again in details later*/
   if ((iProc == 0) & ( iDebugLevel >= 2 )){
@@ -678,6 +759,8 @@ int load_options( OPTIONS_T *OPTIONS,
   }
   rewind(fp);
   found_eoh = 0;
+
+  // AOK: Same file read-in process we've seen in all earlier sections
   while ( found_eoh == 0 && !feof(fp)) {
     getline(&line, &len, fp);
     sscanf(line, "%s", text);
@@ -695,9 +778,19 @@ int load_options( OPTIONS_T *OPTIONS,
   getline(&line,&len,fp);
   char type_orbit_initialisation_temp[300];
   sscanf(line,"%s",type_orbit_initialisation_temp);
+
+  // ----------------------------------------------------
+  // AOK: End ORBIT Settings Section
+  // ----------------------------------------------------
+
   
 
-  /* SPACECRAFTS */
+
+
+  // ----------------------------------------------------
+  // AOK: Begin SPACECRAFTS Settings Section
+  // ----------------------------------------------------
+
   if ((iProc == 0) & ( iDebugLevel >= 2 )){
     printf("--- (load_options) Beginning of section #SPACECRAFT.\n");
   }
@@ -717,10 +810,11 @@ int load_options( OPTIONS_T *OPTIONS,
 
   }
 
-  // Number of spacecrafts
+  // AOK: Read in number of spacecrafts from the SPACECRAFT section of the given file
   getline(&line,&len,fp);
   sscanf(line,"%d",&OPTIONS->n_satellites);
-  // Propagate the GPS satellites or not
+
+  // AOK: Read in whether to propagate the satellites or not
   getline(&line,&len,fp);
   sscanf(line,"%s",text_location);
   //newstructure
@@ -738,12 +832,15 @@ int load_options( OPTIONS_T *OPTIONS,
     OPTIONS->nb_gps = 0;
     
   }
+
+  // AOK: Calculate the number of satellites in orbit that are NOT using GPS
   OPTIONS->nb_satellites_not_including_gps = OPTIONS->n_satellites - OPTIONS->nb_gps;
 
-  // Mass of spacecraft
+  // AOK: Read in mass of spacecraft
   getline(&line,&len,fp);
   sscanf(line,"%lf", &OPTIONS->mass);
-  // Efficiency of the solar cells
+
+  // AOK: Read in the power conversion efficiency of the solar cells used to power the satellite 
   getline(&line, &len, fp);
   strcpy(OPTIONS->opengl_filename_solar_power, "");
   sscanf(line, "%lf %s", &OPTIONS->solar_cell_efficiency, OPTIONS->opengl_filename_solar_power);
@@ -816,6 +913,17 @@ int load_options( OPTIONS_T *OPTIONS,
     printf("--- (load_options) End of section #SPACECRAFT.\n");
   }
 
+  // ------------------------------------------------------
+  // AOK: End SPACECRAFTS Settings Section
+  // ------------------------------------------------------
+
+
+
+
+
+  // ------------------------------------------------------
+  // AOK: Begin OUTPUT Section
+  // ------------------------------------------------------
   /* OUTPUT */
   if ((iProc == 0) & ( iDebugLevel >= 2 )){
     printf("--- (load_options) Beginning of section #OUTPUT.\n");
@@ -835,7 +943,7 @@ int load_options( OPTIONS_T *OPTIONS,
     exit(0);
   }
 
-  // Names of output files
+  // AOK: Read in the names of the user's desired output files
   getline(&line,&len,fp);
         RemoveSpaces(line);  strtok(line, "\n");  strtok(line, "\r"); 
   sscanf(line, "%s", text);
@@ -847,6 +955,7 @@ int load_options( OPTIONS_T *OPTIONS,
 
   next = &text[0];
 
+  // AOK: Using pointer arithmetic to find the position of the "~" character
   int find_tild=0;
     find_tild = (int)(strchr(next, '~') - next);
   if (text[0] == '~'){
@@ -857,6 +966,7 @@ int load_options( OPTIONS_T *OPTIONS,
   next = &text[0];
     }
 
+    // AOK: Using pointer arithmetic to find position of directory
     int find_dir=0;
     find_dir = (int)(strrchr(next, '/') - next);
     if ((find_dir < 0) || (find_dir > 10000)){// no / in the name so the user wants the otuput folder in the directory where he runs the command
@@ -995,7 +1105,17 @@ int load_options( OPTIONS_T *OPTIONS,
     printf("--- (load_options) End of section #OUTPUT.\n");
   }
 
+  // ------------------------------------------------------
+  // AOK: End OUTPUT Settings Section
+  // ------------------------------------------------------
 
+
+
+
+
+  // ------------------------------------------------------
+  // AOK: Begin CDMOD Settings Section
+  // ------------------------------------------------------
 
   /* CD Modification */
   if ((iProc == 0) & ( iDebugLevel >= 2 )){
@@ -1027,6 +1147,9 @@ int load_options( OPTIONS_T *OPTIONS,
     printf("--- (load_options) End of section ##CDMOD.\n");
   }
 
+
+  // AOK: Potentially Misplaced Section??
+  // AOK: We already had a section above dealing with ORBIT, can we possibly move this there?
   /* ORBIT */
   if ((iProc == 0) & ( iDebugLevel >= 2 )){
     printf("--- (load_options) Beginning of section #ORBIT.\n");
@@ -1046,6 +1169,7 @@ int load_options( OPTIONS_T *OPTIONS,
     exit(0);
 
   }
+  // AOK: End Potentially Misplaced Section
 
 
   OPTIONS->aaa_mod = malloc( OPTIONS->nb_satellites_not_including_gps * sizeof(int) ); // used if swpc_mod is on
@@ -1057,12 +1181,15 @@ int load_options( OPTIONS_T *OPTIONS,
   getline(&line,&len,fp);
   sscanf(line,"%s",OPTIONS->type_orbit_initialisation);
 
+  // AOK: If the user does not initialise with a TLE file after choosing not to use a geometry file, throw error and print a user message
   if ( strcmp(OPTIONS->type_orbit_initialisation, "oe" ) == 0 ){
     if ( strcmp(OPTIONS->filename_surface, text_ball_coeff) == 0 ){
       printf("***! You need to intialize the orbit with a TLE because you chose 'ballistic_coefficient' instead of a geometry file (see section '#SPACECRAFT'). The program will stop. !***\n");
       ierr =  MPI_Finalize();
       exit(0);
     }
+
+
     // COE of each satellite
     for (sss = 0; sss<OPTIONS->nb_satellites_not_including_gps; sss++){
       strcpy(name_sat_temp,"");
@@ -1070,18 +1197,23 @@ int load_options( OPTIONS_T *OPTIONS,
       sscanf(line, "%s", name_sat_temp);
       sscanf(line, "%lf %lf %lf %lf %lf %lf", &OPTIONS->apogee_alt[sss], &OPTIONS->inclination[sss], &OPTIONS->w[sss], &OPTIONS->long_an[sss], &OPTIONS->f[sss], &OPTIONS->eccentricity[sss]);
 
+      // AOK: If the array meant to contain the satellite's name is empty, confirm that this is what the user desired
       if (name_sat_temp[0] == '\0'){
 	printf("Are you sure you correctly entered orbital elements for each of the %d spacecrafts? yes/no \n", OPTIONS->nb_satellites_not_including_gps);
 	scanf("%s",answer_coe);
+
+    // AOK: Potential Bug - isn't this while-loop going to print "Please type 'yes' or 'no'" over and over again until user enters choice?
 	while ( ( strcmp(answer_coe,"no") != 0 ) && ( strcmp(answer_coe,"yes")  != 0 ) ) {
 	  printf("Please type 'yes' or 'no': \n");
 	  scanf("%s",answer_coe);
 	}
+    // AOK: If user indicates they made a mistake, print a message, throw an error, and kill the program 
 	if (strcmp(answer_coe,"no") == 0){
 	  printf("Enter orbital elements for each spacecraft and run the program again! \n");
 	  ierr =  MPI_Finalize();
 	  exit(0);
 	}
+    // AOK: If the user truly did desire the array to be empty
 	if (strcmp(answer_coe,"yes") == 0){
 	  sss = OPTIONS->nb_satellites_not_including_gps;
 	}
@@ -1096,6 +1228,10 @@ int load_options( OPTIONS_T *OPTIONS,
       ierr =  MPI_Finalize();
       exit(0);
     }
+
+    // AOK: Begin Redundant Section
+    // AOK: The following code is identical to that used when the orbit initialisation state is "default" instead of "state_ecef"
+    // AOK: This could be abstracted to a function to avoid code duplication
     // COE of each satellite
     for (sss = 0; sss<OPTIONS->nb_satellites_not_including_gps; sss++){
       strcpy(name_sat_temp,"");
@@ -1122,6 +1258,9 @@ int load_options( OPTIONS_T *OPTIONS,
       }
     }
   }
+
+  // AOK: Begin new redundant section, this time with another different orbit initialisation
+  // AOK: Could be abstracted as well, same as last time
   if ( strcmp(OPTIONS->type_orbit_initialisation, "state_eci" ) == 0 ){
     if ( strcmp(OPTIONS->filename_surface, text_ball_coeff) == 0 ){
       printf("***! You need to intialize the orbit with a TLE because you chose 'ballistic_coefficient' instead of a geometry file (see section '#SPACECRAFT'). The program will stop. !***\n");
@@ -1155,6 +1294,7 @@ int load_options( OPTIONS_T *OPTIONS,
     }
   }
 
+  // AOK: Same deal, same redundancies, but this time with the "deployment" initialisation
   if ( strcmp(OPTIONS->type_orbit_initialisation, "deployment" ) == 0 ){
     if ( strcmp(OPTIONS->filename_surface, text_ball_coeff) == 0 ){
       printf("***! You need to intialize the orbit with a TLE because you chose 'ballistic_coefficient' instead of a geometry file (see section '#SPACECRAFT'). The program will stop. !***\n");
@@ -1275,7 +1415,7 @@ int load_options( OPTIONS_T *OPTIONS,
 
 	    	    getelm_c( frstyr, lineln, line_tle, &epoch_sat, elems );
 
-		    // compute the oldest TLE -> to download the inputs for the drag model (we don't care about GPS sc since they don't feel any drag)
+		// compute the oldest TLE -> to download the inputs for the drag model (we don't care about GPS sc since they don't feel any drag)
 	    if (ii == 0){
 	      epoch_sat_previous = epoch_sat;
 	      et_most_recent_tle_epoch = epoch_sat;
@@ -1389,8 +1529,16 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
     printf("--- (load_options) End of section #ORBIT.\n");
   }
 
+  // AOK: Ending of this section is ambiguous, deals with both orbit and CDMOD
 
-  /** ENSEMBLES ON COE**/ 
+
+
+
+
+  // ----------------------------------------------------------
+  // AOK: Begin ENSEMBLES_COE Settings Section
+  // ----------------------------------------------------------
+
   if ((iProc == 0) & ( iDebugLevel >= 2 )){
     printf("--- (load_options) Beginning of section ##ENSEMBLES_COE.\n");
   }
@@ -1500,8 +1648,19 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
     printf("--- (load_options) End of section ##ENSEMBLES_COE.\n");
   }
 
+  // ------------------------------------------------------
+  // AOK: End ENSEMBLES_COE Settings Section
+  // ------------------------------------------------------
 
-  /* KALMAN */
+
+
+
+
+
+  // ------------------------------------------------------
+  // AOK: Begin KALMAN Settings Section
+  // ------------------------------------------------------
+
   if ((iProc == 0) & ( iDebugLevel >= 2 )){
     printf("--- (load_options) Beginning of section #KALMAN.\n");
   }
@@ -1529,8 +1688,18 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
     printf("--- (load_options) End of section #KALMAN.\n");
   }
 
+  // -------------------------------------------------------
+  // AOK: End KALMAN Settings Section
+  // -------------------------------------------------------
 
-  /* ATTITUDE */
+
+
+
+
+  // --------------------------------------------------------
+  // AOK: Begin ATTITUDE Settings Section
+  // --------------------------------------------------------
+
   if ((iProc == 0) & ( iDebugLevel >= 2 )){
     printf("--- (load_options) Beginning of section #ATTITUDE.\n");
   }
@@ -1544,7 +1713,9 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
       found_eoh = 1;
     }
   }
-  if (feof(fp)){ // if the user does not include a section #ATTITUDE, then the attitude is set to nadir pointing by default
+
+  // if the user does not include a section #ATTITUDE, then the attitude is set to nadir pointing by default
+  if (feof(fp)){ 
     strcpy(OPTIONS->attitude_profile, "nadir");
     //nb_time_steps(&OPTIONS->nb_time_steps, OPTIONS->initial_epoch, OPTIONS->final_epoch, OPTIONS->dt);
     if (OPTIONS->use_kalman != 1){ // if KF is used, then the nb of time steps has already been computed
@@ -1634,10 +1805,18 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 	print_error(iProc, "Ensembles on attitude can't be run if the attitude is set with quaternions");
       }
 
+  // ------------------------------------------------------
+  // AOK: End ATTITUDE Settings Section
+ // -------------------------------------------------------
 
 
 
-  /* FORCES */
+
+
+  // ------------------------------------------------------
+  // AOK: Begin FORCES Settings Section
+  // ------------------------------------------------------
+
   if ((iProc == 0) & ( iDebugLevel >= 2 )){
     printf("--- (load_options) Beginning of section #FORCES.\n");
   }
@@ -3597,7 +3776,14 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
     printf("--- (load_options) End of section #GROUND_STATIONS.\n");
   }
 
-  /* STORMS */
+
+
+
+
+  // ----------------------------------------------------
+  // AOK: Begin STORMS Settings Section
+  // ----------------------------------------------------
+
   if ((iProc == 0) & ( iDebugLevel >= 2 )){
     printf("--- (load_options) Beginning of section #STORMS.\n");
   }
@@ -3655,6 +3841,11 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
   if ((iProc == 0) & ( iDebugLevel >= 2 )){
     printf("--- (load_options) End of section #STORMS.\n");
   }
+
+  // ----------------------------------------------------
+  // AOK: End STORMS Settings Section
+  // ----------------------------------------------------
+
 
 
 
