@@ -1,5 +1,5 @@
-# This file contains variable name abbreviations and other conventions that are used throughout the implementation of SpOCK. 
-# Users desiring to view, modify, or interpret files in src should first familiarize themselves with these naming conventions.
+## This file contains variable name abbreviations and other conventions that are used throughout the implementation of SpOCK. 
+## Users desiring to view, modify, or interpret files in src should first familiarize themselves with these naming conventions.
 ### Convention system last updated: 25th May 2021 by Aidan Kingwell
 
 ## General Abbreviation Conventions
@@ -41,6 +41,10 @@ Text --> Txt
 
 Average --> Avg
 
+Elements --> Elts
+
+Index --> Idx
+
 
 
 
@@ -76,7 +80,7 @@ Coefficient --> Coef
 
 Surface area --> surfArr
 
-Emissivity --> Emiss
+Emissivity --> Emis
 
 Polynomial --> Polynom
 

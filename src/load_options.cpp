@@ -48,7 +48,7 @@
 //                                 file (not the number of days anymore)
 // A. Ridley     | 03/09/2021    | The rewrite begins  
 // 
-// A. Kingwell   | 06/02/2021    | Cleanup of comments for readability and clarity
+// A. Kingwell   | 06/02/2021    | Cleanup of comments for readability
 //////////////////////////////////////////////////////////////////////////////
 
 
@@ -1880,12 +1880,15 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
     OPTIONS->include_moon = 0;
   }
   //  printf("%f %f %d %d %d %d\n", OPTIONS->order, OPTIONS->degree,OPTIONS->include_drag, OPTIONS->include_solar_pressure, OPTIONS->include_sun, OPTIONS->include_moon);exit(0);
+  
+  // AOK: If geometry file not given, OPTIONS is modified to not include solar pressure
   if ( (strcmp(OPTIONS->filename_surface, text_ball_coeff)  == 0) && ((OPTIONS->include_solar_pressure == 1) || (OPTIONS->include_earth_pressure == 1)) ){
     printf("***! The earth and solar radiation pressure force can't be computed because you did not indicate a geometry file for the satellite(s) (see section '#SPACECRAFT'). !***\n");
     OPTIONS->include_solar_pressure = 0;
     OPTIONS->include_earth_pressure = 0;
   }
 
+  // AOK: If OPTIONS indicates to include drag, check format of density driver in OPTIONS
   getline(&line,&len,fp);
   if ( OPTIONS->include_drag == 1){
     OPTIONS->nb_ensembles_density = 0;
@@ -1893,8 +1896,10 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 
     sscanf(line, "%s",OPTIONS->format_density_driver);
 
+    // AOK: If density driver is dynamic
     if ( strcmp( OPTIONS->format_density_driver, "dynamic"  ) == 0 ){     
 
+      // AOK: Attempt to allocate necessary memory in OPTIONS 
       OPTIONS->Ap = malloc( OPTIONS->nb_time_steps * 2 * sizeof(double) ); // "* 2.0" because of the Runge Kunta orfer 4 method
 
       OPTIONS->Ap_hist = malloc(  7 * sizeof(double *) ); // historical ap
@@ -1905,6 +1910,8 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
       OPTIONS->f107 = malloc( OPTIONS->nb_time_steps * 2 * sizeof(double) );
       OPTIONS->f107A = malloc( OPTIONS->nb_time_steps * 2 * sizeof(double) );
 
+
+      // AOK: If there is insufficient memory for any of the mallocs above, print debug message and terminate
       if (  OPTIONS->Ap == NULL ){
 	printf("***! Could not allow memory space for  OPTIONS->Ap \n. The program will stop. !***\n");
 	ierr =  MPI_Finalize();
@@ -1946,6 +1953,8 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 	strcpy(initial_epoch_wget, "");
 	next_wget_initial = &initial_epoch_wget_temp[0];
 	find_wget_initial = (int)(strchr(next_wget_initial, '-') - next_wget_initial);
+
+    // AOK: Store the initial epoch wgets, concatenate them, and store the result in final_epoch_wget 
 	strncat(initial_epoch_wget, initial_epoch_wget_temp, 4);
 	strncat(initial_epoch_wget, initial_epoch_wget_temp+5, 2);
 	strncat(initial_epoch_wget, initial_epoch_wget_temp+8, 2);
@@ -1964,6 +1973,7 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 	strcat(str_wget,"&vars=50&scale=Linear&ymin=&ymax=&view=0&charsize=&xstyle=0&ystyle=0&symbol=0&symsize=&linestyle=solid&table=0&imagex=640&imagey=480&color=&back=\"");
 	strcat(str_wget, " https://omniweb.gsfc.nasa.gov/cgi/nx1.cgi -O ");
 	strcpy(filename_f107, "");
+
 	//newstructure
 /* 	strcat(filename_f107, OPTIONS->dir_input_density_msis); */
 /* 	strcat(filename_f107, "/"); */
@@ -2218,12 +2228,24 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 
       }
 
-      else if (strcmp(OPTIONS->test_omniweb_or_external_file, "swpc") == 0){       // if the user chooses to use SWPC data for Ap and F10.7. THe Ap and F10.7 files are automatically downloaded. If the epoch end or the epoch start of the constellation is in the future, then predictions are downloaded from http://www.swpc.noaa.gov/products/usaf-45-day-ap-and-f107cm-flux-forecast (for Ap and F10.7). If the epoch start of the constellation is before the current date, then observations are downloaded from ftp://ftp.swpc.noaa.gov/pub/indices/old_indices/ (DSD: F10.7, DGD: Ap).
-	// This is a different approach from a external file or omniweb, a different function than lin_interpolate is used: lin_interpolate_swpc. It is similar to lin_interpolate except that there are two files for F10.7 and Ap (since there could be a mix of observations and predictions (basically, there's always a mix of observations and predictions except if the epoch end is not in the future, in which case there are only observations))
+    // If the user chooses to use SWPC data for Ap and F10.7. THe Ap and F10.7 files are automatically downloaded. 
+    // If the epoch end or the epoch start of the constellation is in the future, then predictions are downloaded from 
+    // http://www.swpc.noaa.gov/products/usaf-45-day-ap-and-f107cm-flux-forecast (for Ap and F10.7). If the epoch start of the constellation
+    // is before the current date, then observations are downloaded from ftp://ftp.swpc.noaa.gov/pub/indices/old_indices/ (DSD: F10.7, DGD: Ap).
+      else if (strcmp(OPTIONS->test_omniweb_or_external_file, "swpc") == 0){       
+    
+	// This is a different approach from a external file or omniweb, a different function than lin_interpolate is used: lin_interpolate_swpc. 
+    // It is similar to lin_interpolate except that there are two files for F10.7 and Ap (since there could be a mix of observations and 
+    // predictions (basically, there's always a mix of observations and predictions except if the epoch end is not in the future, in which case there are only observations))
 	    OPTIONS->swpc_final_epoch_more_recent_than_45_days_from_current_day = 0;
-	// IMPORTANT: we voluntarily look at the epoch start minus 81 days because we need the data for F10.7 81 days before the epoch start in order to calculate F10.7 81-day average.
+
+	// IMPORTANT: We voluntarily look at the epoch start minus 81 days because we need the data for F10.7 81 days before the epoch start 
+    // in order to calculate F10.7 81-day average.
 	int nb_ensembles_density_temp = 0;
-	sscanf(line, "%s %d",OPTIONS->test_omniweb_or_external_file, &nb_ensembles_density_temp); // note: the user does not have to put a number after "swpc". If there is no number, then nb_ensembles_density_temp automatically takes the value 0
+	sscanf(line, "%s %d",OPTIONS->test_omniweb_or_external_file, &nb_ensembles_density_temp); 
+
+    // NOTE: the user does not have to put a number after "swpc". If there is no number, then nb_ensembles_density_temp automatically 
+    // takes the value 0
 	OPTIONS->nb_ensembles_density = nb_ensembles_density_temp;
 
       if (nProcs > 0){
@@ -2244,6 +2266,7 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 	char day_current_str[15];
 	sprintf(day_current_str, "%d", day_current);
     
+    // AOK: Concatenate the pieces of the date read in above into the complete date
 	char date_current[256];
 	strcpy(date_current,year_current_str);
 	strcat(date_current, "-");
@@ -2279,7 +2302,8 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 	  OPTIONS->swpc_need_observations = 1; // we'll use observations because epoch start is older than today
 	}
 	// Figure out if predictions are used: predictions are needed if the epoch end or the epoch start are in the future compared to the current day (assumed at midnight)
-	if ( et_final_epoch_midnight > ( et_current_day - 24*3600.)){ // -24*3600 by security (like this we are sure that if we don't need predictions it means that the final epoch is at least one day before the current day)
+    // // -24*3600 by security (like this we are sure that if we don't need predictions it means that the final epoch is at least one day before the current day)
+	if ( et_final_epoch_midnight > ( et_current_day - 24*3600.)) { 
 	  OPTIONS->swpc_need_predictions = 1; // we will use predictions because the propagations ends in the future
 	}
 	else{
@@ -2291,7 +2315,10 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 	if ( OPTIONS->swpc_need_observations == 1){
 
 	  // // Arranged by quarters of year if propagation corresponds to the current year. Otherwise arranged by year
-	  // // // Figures out if epoch year (start or end) is same as current year. !!! ASSUMPTION: in section #TIME, unless the user chose "now" at the first line, the epoch start and end times have to start with 4 digits, representing the year (so for instance not just 16-08-20 for the 20th of August 2016, but: 2016-08-20)
+	  // // // Figures out if epoch year (start or end) is same as current year. 
+   
+      // !!! ASSUMPTION: In section #TIME, unless the user chose "now" at the first line, the epoch start and end times have to start with 
+      // 4 digits, representing the year (so for instance not just 16-08-20 for the 20th of August 2016, but: 2016-08-20)
 	  char year_epoch_start_minus_81_days[10];
 	  strcpy(year_epoch_start_minus_81_days, "");
 	  strncat(year_epoch_start_minus_81_days, &initial_epoch_minus_81_days[0], 4);
@@ -2301,6 +2328,8 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 	  strncat(year_epoch_stop, &OPTIONS->final_epoch[0], 4);
 	  int year_epoch_stop_int = atoi(year_epoch_stop);
 	  int epoch_year_same_as_current_year;
+
+      // AOK: If the current epoch year is greater than or equal to the current year, set bool to True, otherwise set to False
 	  if ( ( year_epoch_start_minus_81_days_int >= year_current ) || ( year_epoch_stop_int >= year_current ) ){
 	    epoch_year_same_as_current_year = 1;
 	  }
@@ -2319,9 +2348,10 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 /* 	  strcat(final_filename_f107_obs, "/"); */
 	  //newstructure 
 
+      // // // If year of epoch start or end then figure out which quarter of the year the epoch start and end correspond to
 	  if (epoch_year_same_as_current_year == 1){
 
-	    // // // If year of epoch start or end then figure out which quarter of the year epoch start and end correspond to
+	    
 	    char first_quarter_start[256];
 	    strcpy(first_quarter_start, year_current_str);
 	    strcat(first_quarter_start, "-01-01T00:00:00.000"); // first quarter starts on march 31st
@@ -2343,6 +2373,7 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 	    double et_third_quarter;
 	    str2et_c( third_quarter, &et_third_quarter );
 
+        // AOK: Determine which quarter of the year the start of our epoch minus 81 days corresponds to
 	    // // // // which quarter for epoch start - 81 days
 	    if ( ( et_initial_epoch_minus_81_days < et_first_quarter ) && ( et_initial_epoch_minus_81_days >= et_first_quarter_start) ){
 	      strcpy( date_file_obs_initial_swpc, "Q1" );
@@ -2366,7 +2397,7 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 	      strcpy( date_file_obs_initial_swpc, year_epoch_start_minus_81_days );
 	    }
 
-	    // // // // which quarter for epoch end
+	    // AOK: Determine which quarter of the year the end of our epoch corresponds to
 	    if ( ( et_final_epoch < et_first_quarter ) && ( et_final_epoch >= et_first_quarter_start) ){
 	      strcpy( date_file_obs_final_swpc, "Q1" );
 	      quarter_final_swpc = 1;
@@ -2391,8 +2422,7 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 	    }
 
 
-
-	    // // // // which quarter for current date
+        // AOK: Determine which quarter of the year our current date corresponds to
 	    if ( ( et_current_day < et_first_quarter ) && ( et_current_day >= et_first_quarter_start) ){
 	      quarter_current = 1;
 	    }
@@ -2408,7 +2438,7 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 	    }
 
 
-	    // // // // which quarter for epoch start 
+	    // AOK: Determine which quarter of the year our epoch start corresponds to
 	    if ( ( OPTIONS->et_oldest_tle_epoch < et_first_quarter ) && (  OPTIONS->et_oldest_tle_epoch  >= et_first_quarter_start) ){
 	      quarter_initial_epoch = 1;
 	    }
@@ -2426,7 +2456,11 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 
 
 	  }
-	  else{ // both the epoch start and end correspond to a year previous to the current year !!! ASSUMPTION: in section #TIME, unless the user chose "now" at the first line, the epoch start and end times have to start with 4 digits, representing the year (so for instance not just 16-08-20 for the 20th of August 2016, but: 2016-08-20)
+
+      // AOK: Else, both the epoch start and end correspond to a year previous to the current year
+      // !!! ASSUMPTION: in section #TIME, unless the user chose "now" at the first line, the epoch startand end times have to start with 
+      // 4 digits, representing the year(so for instance not just 16 - 08 - 20 for the 20th of August 2016, but: 2016 - 08 - 20)
+	  else{  
 	    char year_epoch_start_minus_81_days[10];
 	    strcpy(year_epoch_start_minus_81_days, "");
 	    strncat(year_epoch_start_minus_81_days, &initial_epoch_minus_81_days[0], 4);
@@ -2448,12 +2482,16 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 
 	  char wget_swpc_quarter_to_download[1000], wget_swpc_quarter_to_download_temp[5];
 	  int remove_n_file_for_ap = 0;
-	  if ( date_file_obs_final_swpc[0] != 'Q' ){// epoch end year != current year
+
+      // AOK: If the epoch end year does not equal the current year
+	  if ( date_file_obs_final_swpc[0] != 'Q' ){
 	    date_file_obs_final_swpc_int = atoi(date_file_obs_final_swpc);
 	  }
-	  if ( date_file_obs_initial_swpc[0] != 'Q' ){// epoch start year != current year
+      // AOK: If the epoch start year does not equal the current year
+	  if ( date_file_obs_initial_swpc[0] != 'Q' ) {
 	    date_file_obs_initial_swpc_int = atoi(date_file_obs_initial_swpc);
-	  // // we want to avoid downloading the ap file is older than the epoch start date because we don't need it (contrarily to F10.7 for which we need the data 81 days before the current date)
+	  // // we want to avoid downloading the ap file is older than the epoch start date because we don't need it 
+      // (contrarily to F10.7 for which we need the data 81 days before the current date)
 	  char year_epoch_start[10];
 	  strcpy(year_epoch_start, "");
 	  strncat(year_epoch_start, &OPTIONS->oldest_tle_epoch[0], 4);
@@ -2485,7 +2523,10 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 	    if ( date_file_obs_initial_swpc[0] == 'Q' ){
 	      nb_file_obs_swpc = quarter_final_swpc - quarter_initial_swpc + 1;
 	    }
-	    else{// epoch start year is before current year so add all files of current year quarters until epoch end with files from all years from epoch start year until current year
+
+        // AOK: Else, the epoch start year is before the current year, so add files covering the current year to the epoch end
+        // AOK: to the files that cover the epoch start year to the current year
+	    else{
 	      nb_file_obs_swpc = quarter_final_swpc + ( year_current - date_file_obs_initial_swpc_int ); 
 	    }
 	  }
@@ -2512,9 +2553,11 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 	  
 
   int ifile_f107 = 0, ifile_ap = 0;
-	    if ( date_file_obs_final_swpc[0] == 'Q' ){// epoch end year = current year
-	      
-	    if ( date_file_obs_initial_swpc[0] == 'Q' ){// epoch start year = current year 
+
+        // AOK: If the epoch end year is the same as the current year
+	    if ( date_file_obs_final_swpc[0] == 'Q' ){
+	      // AOK: If the epoch start year is the same as the current year
+	    if ( date_file_obs_initial_swpc[0] == 'Q' ){
 	      for (ooo = quarter_initial_swpc; ooo < quarter_final_swpc +1; ooo++){
 		// F10.7
 		strcpy(wget_swpc_quarter_to_download, "wget --no-check-certificate ftp://ftp.swpc.noaa.gov/pub/indices/old_indices/");
@@ -2544,6 +2587,7 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 
 		// Ap		
 	      for (ooo = quarter_initial_swpc_ap; ooo < quarter_final_swpc +1; ooo++){
+        // AOK: NOTE - The --no-check-certificate is likely necessary for non-SSH access but also could be a security risk
 		strcpy(wget_swpc_quarter_to_download, "wget --no-check-certificate ftp://ftp.swpc.noaa.gov/pub/indices/old_indices/");
 		strcpy(wget_swpc_quarter_to_download_temp, "");
 		sprintf(wget_swpc_quarter_to_download_temp, "%d", ooo );
@@ -2572,7 +2616,7 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 	      } 
 	    }
 	    else{ // if start epoch is from a previous year and that end eopch is the current year then download all files from start epoch year to current year and then all files of the current year up to the epoch end quarter
-	      //  download all years from initial epoch year to curren year
+	      //  download all years from initial epoch year to current year
 	      for (ooo = date_file_obs_initial_swpc_int; ooo < year_current; ooo++){
 		// F10.7
 		strcpy(wget_swpc_quarter_to_download, "wget --no-check-certificate ftp://ftp.swpc.noaa.gov/pub/indices/old_indices/");
@@ -2681,7 +2725,9 @@ OPTIONS->et_oldest_tle_epoch =  OPTIONS->et_vcm[1];
 
 	    }
 	  }
-	  else{ // end epoch year is older than current year (so start epoch year too)
+
+      // AOK: Else, the end epoch year occurred earlier than our current year, so the start of the epoch year must be too
+	  else{ 
 	    for (ooo = date_file_obs_initial_swpc_int; ooo < date_file_obs_final_swpc_int + 1; ooo++){
 	      // F10.7
 	      strcpy(wget_swpc_quarter_to_download, "wget --no-check-certificate ftp://ftp.swpc.noaa.gov/pub/indices/old_indices/");
